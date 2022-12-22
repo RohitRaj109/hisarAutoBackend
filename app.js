@@ -6,6 +6,10 @@ const mongoose = require('mongoose')
 const app = express();
 require('dotenv/config')
 const api= process.env.API_URL;
+const cors = require('cors');
+app.use(cors());
+app.options('*',cors())
+
 //middleware
  //const  productRouter = require('./router/product.js')
 app.use(bodyParser.json());
@@ -13,7 +17,9 @@ app.use(morgan('tiny'));
 
 
 
+
  //app.use(`${api}/products`,productRouter)
+
 
 
 const Product = require('./model/product.js')
@@ -158,6 +164,14 @@ app.post(`${api}/static`,(req,res)=>{
             success:false
         })
     })
+})
+app.get(`${api}/static`,async (req,res)=>{ //api+'/products'
+    const static = await StaticData.find()
+    if(!static){
+        res.status(500).json({success:false});
+    }
+    res.send(static)
+   
 })
 
 // app.use(`${api}/products`,productRouter)
