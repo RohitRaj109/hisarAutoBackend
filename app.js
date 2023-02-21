@@ -9,12 +9,30 @@ const api= process.env.API_URL;
 const cors = require('cors');
 app.use(cors());
 app.options('*',cors())
-
+const fileUpload = require('express-fileupload');
+const cloudinary = require('cloudinary').v2;
+const mailer = require('nodemailer')
+var transporter = mailer.createTransport({
+    host:'smtp.gmail.com',
+    port:587,
+    secure:false,
+    requireTLS:true,
+    auth:{
+        user:'rohitraj.smsit@gmail.com',
+        pass:"qrbqvowbielwkffw"
+    }
+})
+cloudinary.config({ 
+    cloud_name: 'dd74og52k', 
+    api_key: '965389974274484', 
+    api_secret: 'KjXUrswCQLwrJOC0ehZXwGQP6Ik',
+    secure: true
+  });
 //middleware
  //const  productRouter = require('./router/product.js')
 app.use(bodyParser.json());
 app.use(morgan('tiny'));
-
+app.use(fileUpload({ useTempFiles:true }))
 
 
 
@@ -27,6 +45,7 @@ const Inquiry = require('./model/inquiry.js');
 const Subscribe = require('./model/subscribe.js');
 const ContactUs = require('./model/contactUs.js')
 const StaticData = require('./model/staticContent.js');
+const User = require('./model/User.js');
 const options = { 
     useNewUrlParser: true,
     useUnifiedTopology: true,
@@ -38,7 +57,11 @@ mongoose.connect(process.env.CONNECTION_STRING,options).then(()=>{
 }).catch((error)=>{
 console.log(error)
 })
-
+app.post('/register',async (req,res)=>{
+    const user= new User(req.body)
+    let result =  await user.save()
+        res.send({data:result,success:true,status:200});
+    } )
  
 app.get(`${api}/products`,async (req,res)=>{ //api+'/products'
     const products = await Product.find()
@@ -48,8 +71,15 @@ app.get(`${api}/products`,async (req,res)=>{ //api+'/products'
     res.send(products)
    
 })
+
+app.post(`${api}/upload_productImage`,(req,res,next)=>{
+    const file= req.files.user_file;
+    cloudinary.uploader.upload(file.tempFilePath,(err,result)=>{
+        console.log(result.url, result.secure_url)
+        res.send({data:{url:result.url,secure_url:result.secure_url,success:true,status:200}})
+    })
+  })
 app.post(`${api}/products`,(req,res)=>{ 
-    //console.log(req.body)
     const product = new Product({
         image:req.body.image,
         images:req.body.images,
@@ -107,14 +137,13 @@ app.get(`${api}/inquiry`,async (req,res)=>{ //api+'/products'
     res.send(inquiry)
    
 })
-app.post(`${api}/subscribe`,(req,res)=>{ 
-    const subscribes = new Inquiry({
+app.post(`${api}/subscribe`,async(req,res)=>{ 
+    const subscribes = new Subscribe({
         emailId:req.body.emailId,
-        countInStock:5,
         createdAt:new Date().getTime()
     })
     subscribes.save().then((createSubscription)=>{
-        res.status(200).json(createSubscription)
+        res.status(200).json({data:createSubscription,emailId:req.body.emailId, success:true})
     }).catch((error)=>{
         res.status(500).json({
             error: error,
@@ -173,7 +202,25 @@ app.get(`${api}/static`,async (req,res)=>{ //api+'/products'
     res.send(static)
    
 })
+app.post(`${api}/sendMail`, async(req,res)=>{
+    console.log('email',req.body.emailId)
+    var mailOptions = {
+        from :'rohitraj.smsit@gmail.com',
+        to:req.body.emailId,//'rohitraj.smsit@gmail.com',
+        subject:'hi!',
+        text:'welcome to hisar auto private limited. Now your subscription has successfully registered with us',
+    }
+    await transporter.sendMail(mailOptions,function(error,info){
+        if(error){
+            console.log(error)
+        }
+        else{
+            res.send({ data: info.response, message:'email has been sent successfully', success:true});
+         console.log('email has beeen send,!', info.response)
+        }
+        })
 
+})
 // app.use(`${api}/products`,productRouter)
 app.listen(5000,(req,res)=>{
     console.log('backend2 console.')
